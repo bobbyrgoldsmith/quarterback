@@ -1,0 +1,76 @@
+# Quarterback Alert Configuration
+# Configure how and when you receive task notifications
+
+# Enable or disable the alert system
+enabled: true
+
+# Quiet hours - no notifications during these times
+quiet_hours:
+  enabled: true
+  start: "22:00"  # 10:00 PM
+  end: "08:00"    # 8:00 AM
+
+# Days when alerts are active (0=Monday, 6=Sunday)
+active_days: [0, 1, 2, 3, 4, 5, 6]
+
+# Alert thresholds
+thresholds:
+  min_priority: 4
+  upcoming_days: 3
+  notify_overdue: true
+  notify_due_today: true
+  notify_upcoming: true
+
+# Time-sensitive projects (always notify regardless of priority)
+time_sensitive_projects: []
+
+# Check intervals (in minutes)
+check_intervals:
+  normal: 60
+  morning: true
+  morning_time: "08:00"
+  evening: true
+  evening_time: "17:00"
+
+# Daily summary
+daily_summary:
+  enabled: true
+  time: "08:00"
+  include_quick_wins: true
+  max_tasks_shown: 5
+
+# Working hours configuration
+working_hours:
+  working_days: [0, 1, 2, 3, 4]  # Monday-Friday
+  start_time: "09:00"
+  end_time: "18:00"
+
+  lunch_break:
+    enabled: true
+    duration: 1.0
+    start_time: "12:00"
+
+  planning:
+    time_aware: true
+    min_hours_today: 1.0
+    buffer_percentage: 0.25
+    quick_task_threshold: 2.0
+
+# Notification preferences
+notifications:
+  sound_enabled: true
+  show_project: true
+  show_effort: true
+  max_message_length: 100
+
+# Filters
+filters:
+  excluded_projects: []
+  excluded_statuses: ["completed", "blocked"]
+  included_workflows: []
+
+# Logging
+logging:
+  enabled: false
+  log_file: "~/.quarterback/logs/alerts.log"
+  level: "INFO"

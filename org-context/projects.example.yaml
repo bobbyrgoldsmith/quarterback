@@ -1,0 +1,34 @@
+# Active Projects
+# Define your active projects with metadata for intelligent prioritization
+
+projects:
+  - name: "Example Project 1"
+    path: "~/projects/example-project-1"
+    workflow: "Product Development"
+    description: "Brief description of the project"
+    status: "active"  # active, paused, completed, archived
+    priority: 1  # 1-5, lower is higher priority
+    current_phase: "Phase description"
+    revenue_potential: "high"  # none, low, medium, high
+    strategic_value: "high"  # low, medium, high
+    technical_complexity: "medium"  # low, medium, high
+    dependencies: []
+    next_milestone: "Description of next milestone"
+    notes: "Additional notes about the project"
+
+  - name: "Example Project 2"
+    path: "~/projects/example-project-2"
+    workflow: "Content & Growth"
+    description: "Another project description"
+    status: "active"
+    priority: 2
+    current_phase: "Development"
+    revenue_potential: "medium"
+    strategic_value: "medium"
+    technical_complexity: "high"
+    dependencies: ["Example Project 1"]
+    next_milestone: "MVP launch"
+    notes: "Example notes"
+
+# Supported statuses: active, paused, completed, archived
+# Priority: 1 (highest) to 5 (lowest)

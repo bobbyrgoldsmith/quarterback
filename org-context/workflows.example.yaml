@@ -1,0 +1,29 @@
+# Workflow Definitions
+# A workflow is a group of related projects working toward common goals
+
+workflows:
+  - name: "Product Development"
+    description: "Revenue-generating product work"
+    projects:
+      - "project-name-1"
+      - "project-name-2"
+    goals:
+      - "Launch MVP by end of quarter"
+      - "Achieve product-market fit"
+    status: "active"  # active, paused, completed
+    priority: 1  # 1-5, lower is higher priority
+
+  - name: "Content & Growth"
+    description: "Audience building and content strategy"
+    projects:
+      - "blog"
+      - "newsletter"
+    goals:
+      - "Publish 2 articles per week"
+      - "Grow email list to 1,000"
+    status: "active"
+    priority: 2
+
+# Workflows help organize related projects and provide context for
+# intelligent prioritization. When multiple projects compete for attention,
+# the workflow priority helps determine which is more important.
