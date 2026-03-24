@@ -123,6 +123,83 @@ Mark tasks for autonomous agent execution with configurable autonomy:
 
 Webhooks notify your automation layer (n8n, Zapier, custom) when tasks are ready.
 
+### CI/CD Pipeline Integration
+
+Quarterback's CLI and webhook system make it a natural fit for automated pipelines — update task status, log deliverables, and trigger downstream work without a human in the loop.
+
+#### Direct CLI in pipelines
+
+Add Quarterback commands to any CI/CD step. The CLI is stateless and scriptable:
+
+```yaml
+# GitHub Actions example: auto-update task on deploy
+- name: Mark deploy task complete
+  run: |
+    pip install quarterback
+    export QUARTERBACK_HOME=${{ runner.temp }}/.quarterback
+    quarterback update 42 --status completed --notes "Deployed via CI, SHA: ${{ github.sha }}"
+```
+
+```yaml
+# After test suite passes, log results to a task
+- name: Report test results
+  run: |
+    quarterback update 38 --notes "Tests passed: 106/106, coverage 87%. Build #${{ github.run_number }}"
+```
+
+```yaml
+# Nightly: check for overdue deliverables and alert
+- name: Nightly priority check
+  run: |
+    quarterback alert-check
+    quarterback priorities today --limit 5
+```
+
+#### Agentic CI/CD with webhooks
+
+Register a webhook and let your automation layer react to task events in real time:
+
+```bash
+# Register a webhook pointing at your n8n/Zapier/custom endpoint
+quarterback-server  # MCP tools available, or use CLI:
+```
+
+```python
+# In your automation script: mark a task agent-ready after PR merge
+import subprocess
+subprocess.run([
+    "quarterback", "update", "55",
+    "--status", "completed",
+    "--notes", f"PR #{pr_number} merged. Deployed to staging."
+])
+```
+
+**Use cases:**
+
+| Pipeline event | Quarterback action | What happens |
+|---------------|-------------------|--------------|
+| PR merged | `update_task` status=completed | Task marked done, webhook fires to Slack |
+| Deploy succeeds | `update_task` with SHA + environment notes | Deliverable tracked with audit trail |
+| Nightly cron | `get_priorities` + `alert-check` | Team gets daily summary of what's overdue |
+| Test suite fails | `add_task` with failure details | Bug auto-filed, linked to project |
+| Sprint starts | `get_priorities` + `detect_conflicts` | Surface scheduling conflicts before work begins |
+| Agent completes work | `update_agent_status` status=completed | Webhook notifies orchestrator, next task dispatched |
+| Release tagged | `advisory-add` with release notes | Changelog analyzed against project goals |
+
+#### Shared database across environments
+
+Point multiple environments at the same Quarterback instance:
+
+```bash
+# All CI runners share one database via mounted volume or network path
+export QUARTERBACK_HOME=/shared/quarterback
+
+# Or per-environment with migration
+quarterback migrate /path/to/source
+```
+
+This lets your local CLI, CI pipelines, and MCP-connected agents all read and write to the same task graph — giving you a single source of truth across manual and automated workflows.
+
 ### Time-Aware Planning
 
 ```bash
@@ -210,4 +287,4 @@ MIT - see [LICENSE](LICENSE)
 
 ---
 
-Built by [NodeBridge](https://nodebridge.dev) | [GitHub Sponsors](https://github.com/sponsors/bobbyrgoldsmith)
+Built by [NodeBridge Automation Solutions](https://nodebridge.dev) | [GitHub Sponsors](https://github.com/sponsors/bobbyrgoldsmith)
