@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.bobbyrgoldsmith/quarterback -->
+
 # Quarterback
 
 **Read the field. Call the play.**
