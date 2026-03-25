@@ -1,5 +1,3 @@
-<!-- mcp-name: io.github.bobbyrgoldsmith/quarterback -->
-
 # Quarterback
 
 **Read the field. Call the play.**
@@ -10,6 +8,8 @@ Strategic task prioritization and agent orchestration for multi-project operator
 [![Python](https://img.shields.io/pypi/pyversions/quarterback)](https://pypi.org/project/quarterback/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/bobbyrgoldsmith/quarterback/actions/workflows/ci.yml/badge.svg)](https://github.com/bobbyrgoldsmith/quarterback/actions/workflows/ci.yml)
+
+[![Quarterback MCP server](https://glama.ai/mcp/servers/bobbyrgoldsmith/quarterback/badges/card.svg)](https://glama.ai/mcp/servers/bobbyrgoldsmith/quarterback)
 
 ---
 
