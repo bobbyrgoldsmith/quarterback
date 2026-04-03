@@ -4,7 +4,6 @@ Provides interview template and config generation for LLM-driven onboarding.
 """
 
 import json
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -251,7 +250,7 @@ def generate_goals_md(answers: dict) -> str:
             if desc and not milestone:
                 lines.append(f"- {desc}")
             if not milestone and not desc:
-                lines.append(f"- Complete current phase")
+                lines.append("- Complete current phase")
             lines.append("")
 
     # Anti-Goals
