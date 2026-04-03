@@ -57,9 +57,11 @@ quarterback plan-day
 
 ### LLM-Powered Setup (via MCP)
 
-When using Quarterback as an MCP server, ask Claude: *"Set up Quarterback for me"* — it will call the `setup_quarterback` tool, interview you conversationally about your business, goals, workflows, projects, and constraints, then write all config files and database records in one shot. No manual YAML editing required.
+When using Quarterback as an MCP server, ask your LLM: *"Set up Quarterback for me"* — it will call the `setup_quarterback` tool, interview you conversationally about your business, goals, workflows, projects, and constraints, then write all config files and database records in one shot. No manual YAML editing required.
 
-## MCP Server (for Claude Desktop / Claude Code)
+## MCP Server
+
+Quarterback works with **any MCP-compatible client** — Claude Desktop, Claude Code, Cursor, Windsurf, Cline, OpenAI agents, and others. All 23 tools use standard MCP protocol (JSON-RPC over stdio) with no LLM-specific dependencies.
 
 ```bash
 # Install with MCP support
@@ -90,7 +92,9 @@ Or for Claude Code (`~/.claude/settings.json`):
 }
 ```
 
-Then ask Claude: *"What should I work on today?"* — it will use all 23 Quarterback tools to analyze your priorities.
+The same `quarterback-server` command works with any MCP client — just add it to your client's server configuration.
+
+Then ask your LLM: *"What should I work on today?"* — it will use all 23 Quarterback tools to analyze your priorities.
 
 ## Features
 
