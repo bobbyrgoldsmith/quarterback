@@ -1422,9 +1422,13 @@ def cmd_migrate(source_dir: str):
 
     print(f"Migrating from {source}...")
 
-    # Copy database
+    # Copy database (remove stale WAL/SHM files from init to avoid journal conflicts)
     dest_db = DB_PATH
     dest_db.parent.mkdir(parents=True, exist_ok=True)
+    for suffix in ["-wal", "-shm"]:
+        wal_file = dest_db.parent / (dest_db.name + suffix)
+        if wal_file.exists():
+            wal_file.unlink()
     shutil.copy2(source_db, dest_db)
     print(f"  Copied database -> {dest_db}")
 
