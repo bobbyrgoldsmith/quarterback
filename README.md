@@ -10,6 +10,7 @@ Strategic task prioritization and agent orchestration for multi-project operator
 [![Python](https://img.shields.io/pypi/pyversions/quarterback)](https://pypi.org/project/quarterback/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/bobbyrgoldsmith/quarterback/actions/workflows/ci.yml/badge.svg)](https://github.com/bobbyrgoldsmith/quarterback/actions/workflows/ci.yml)
+[![bobbyrgoldsmith/quarterback MCP server](https://glama.ai/mcp/servers/bobbyrgoldsmith/quarterback/badges/score.svg)](https://glama.ai/mcp/servers/bobbyrgoldsmith/quarterback)
 
 ---
 
