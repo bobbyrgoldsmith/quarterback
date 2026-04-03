@@ -107,6 +107,8 @@ class Task(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+    cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
     agent_config: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     agent_ready: Mapped[bool] = mapped_column(default=False)
     agent_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -270,6 +272,15 @@ async def init_db(db_path: str = None):
     if db_dir and db_path != ":memory:":
         os.makedirs(db_dir, exist_ok=True)
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
+
+    # Enable WAL mode for safe concurrent access from multiple MCP server processes
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

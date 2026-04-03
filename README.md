@@ -37,6 +37,9 @@ pip install quarterback
 # Initialize (creates ~/.quarterback/)
 quarterback init
 
+# Interactive setup wizard — walks you through org, goals, workflows, projects, constraints
+quarterback setup
+
 # Add your first project and tasks
 quarterback add "Launch landing page" --project "My Startup" --priority 4 --effort 3 --impact 5
 quarterback add "Write blog post" --project "Content" --priority 3 --effort 2 --impact 3
@@ -50,6 +53,10 @@ quarterback quick-wins
 # Plan your day with time awareness
 quarterback plan-day
 ```
+
+### LLM-Powered Setup (via MCP)
+
+When using Quarterback as an MCP server, ask Claude: *"Set up Quarterback for me"* — it will call the `setup_quarterback` tool, interview you conversationally about your business, goals, workflows, projects, and constraints, then write all config files and database records in one shot. No manual YAML editing required.
 
 ## MCP Server (for Claude Desktop / Claude Code)
 
@@ -82,7 +89,7 @@ Or for Claude Code (`~/.claude/settings.json`):
 }
 ```
 
-Then ask Claude: *"What should I work on today?"* — it will use all 22 Quarterback tools to analyze your priorities.
+Then ask Claude: *"What should I work on today?"* — it will use all 23 Quarterback tools to analyze your priorities.
 
 ## Features
 
@@ -214,7 +221,7 @@ Considers your working hours, lunch break, buffer time for meetings, and current
 
 ### Organizational Context
 
-After `quarterback init`, configure your context in `~/.quarterback/org-context/`:
+After `quarterback init`, run `quarterback setup` for an interactive wizard, or ask Claude to run the setup wizard via MCP. You can also manually configure your context in `~/.quarterback/org-context/`:
 
 ```
 ~/.quarterback/org-context/
@@ -240,6 +247,7 @@ Configure notifications in `~/.quarterback/config/alerts.yaml`:
 | Command | Description |
 |---------|-------------|
 | `quarterback init` | Initialize Quarterback |
+| `quarterback setup` | Interactive setup wizard |
 | `quarterback migrate <dir>` | Migrate from task-manager |
 | `quarterback priorities [today\|week\|all]` | Prioritized task list |
 | `quarterback add "task" [options]` | Add a task |
@@ -258,7 +266,7 @@ Configure notifications in `~/.quarterback/config/alerts.yaml`:
 | `quarterback alert-check` | Check for alerts |
 | `quarterback alert-summary` | Send daily summary |
 
-## MCP Tools (22 total)
+## MCP Tools (23 total)
 
 When used as an MCP server, Quarterback exposes these tools to Claude:
 
@@ -271,6 +279,8 @@ When used as an MCP server, Quarterback exposes these tools to Claude:
 **Webhooks**: `register_webhook`, `list_webhooks`, `update_webhook`, `delete_webhook`
 
 **Agent Orchestration**: `mark_task_agent_ready`, `get_agent_ready_tasks`, `update_agent_status`
+
+**Setup**: `setup_quarterback`
 
 ## Environment Variables
 

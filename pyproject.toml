@@ -1,6 +1,6 @@
 [project]
 name = "quarterback"
-version = "1.0.1"
+version = "1.1.0"
 description = "Strategic task prioritization and agent orchestration for multi-project operators"
 readme = "README.md"
 license = "MIT"

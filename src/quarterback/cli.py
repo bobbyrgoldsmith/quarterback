@@ -1260,6 +1260,147 @@ def cmd_init():
     print(f"Configure your org context in {ORG_CONTEXT_DIR}/")
 
 
+def cmd_setup():
+    """Interactive setup wizard for Quarterback."""
+    import asyncio
+    from quarterback.setup_wizard import apply_setup, get_setup_status
+
+    print("\n  Quarterback Setup Wizard")
+    print("  ========================\n")
+
+    status = get_setup_status()
+    if not status["quarterback_initialized"]:
+        print("  Initializing Quarterback first...")
+        cmd_init()
+        print()
+
+    overwrite = False
+    has_existing = any(
+        status[k]
+        for k in [
+            "goals_configured",
+            "workflows_configured",
+            "projects_configured",
+            "constraints_configured",
+        ]
+    )
+    if has_existing:
+        resp = input("  Existing config found. Overwrite? (originals backed up) [y/N]: ").strip()
+        if resp.lower() != "y":
+            print("  Setup cancelled. Existing config preserved.")
+            return
+        overwrite = True
+
+    print("  1. ORGANIZATION\n")
+    org_name = input("  What is your business or project called? > ").strip()
+    mission = input("  Describe what you do in one sentence: > ").strip()
+    vision = input("  Where do you want to be in 2-3 years? (Enter to skip): > ").strip()
+
+    print("\n  2. GOALS\n")
+    print("  What are your top goals for this year? (one per line, blank to finish):")
+    annual = []
+    while True:
+        g = input("  > ").strip()
+        if not g:
+            break
+        annual.append(g)
+
+    print("  What are you focused on this quarter? (one per line, blank to finish):")
+    quarterly = []
+    while True:
+        g = input("  > ").strip()
+        if not g:
+            break
+        quarterly.append(g)
+
+    print("  Anything you do NOT want to work on? (one per line, blank to finish):")
+    anti_goals = []
+    while True:
+        g = input("  > ").strip()
+        if not g:
+            break
+        anti_goals.append(g)
+
+    print("\n  3. WORKFLOWS & PROJECTS\n")
+    print("  Add your work themes/workflows (blank name to finish):")
+    workflows = []
+    while True:
+        name = input("  Workflow name: > ").strip()
+        if not name:
+            break
+        desc = input(f"  Description for '{name}': > ").strip()
+        workflows.append(
+            {
+                "name": name,
+                "description": desc,
+                "goals": [],
+                "priority": len(workflows) + 1,
+                "status": "active",
+            }
+        )
+
+    print("\n  Add your projects (blank name to finish):")
+    projects = []
+    wf_names = [w["name"] for w in workflows]
+    while True:
+        name = input("  Project name: > ").strip()
+        if not name:
+            break
+        path = input(f"  Path for '{name}' (e.g. ~/projects/foo): > ").strip()
+        workflow = ""
+        if wf_names:
+            print(f"  Workflows: {', '.join(wf_names)}")
+            workflow = input(f"  Workflow for '{name}': > ").strip()
+        priority = input(f"  Priority 1-5 for '{name}' [3]: > ").strip()
+        projects.append(
+            {
+                "name": name,
+                "path": path,
+                "workflow": workflow,
+                "status": "active",
+                "priority": int(priority) if priority.isdigit() else 3,
+            }
+        )
+
+    print("\n  4. CONSTRAINTS\n")
+    hours = input("  Hours per week available [40]: > ").strip()
+    working_hours = input("  Working hours (e.g. 9am-6pm) [9am-6pm]: > ").strip()
+    team_size = input("  Team size [1]: > ").strip()
+    budget = input("  Monthly budget for tools/infra (Enter to skip): > ").strip()
+    stack = input("  Preferred tech stack (comma-separated, Enter to skip): > ").strip()
+
+    answers = {
+        "organization": {
+            "name": org_name or "My Organization",
+            "mission": mission,
+            "vision": vision,
+        },
+        "goals": {"annual": annual, "quarterly": quarterly, "anti_goals": anti_goals},
+        "workflows": workflows,
+        "projects": projects,
+        "constraints": {
+            "hours_per_week": int(hours) if hours.isdigit() else 40,
+            "working_hours": working_hours or "9am-6pm",
+            "working_days": "Monday-Friday",
+            "team_size": int(team_size) if team_size.isdigit() else 1,
+            "budget_monthly": float(budget) if budget else None,
+            "preferred_stack": [s.strip() for s in stack.split(",") if s.strip()] if stack else [],
+        },
+    }
+
+    print("\n  Writing configuration...")
+    result = asyncio.run(apply_setup(answers, overwrite=overwrite))
+
+    if result.get("success"):
+        print("  Done! Quarterback is configured.\n")
+        print("  Next steps:")
+        for step in result.get("next_steps", []):
+            print(f"    - {step}")
+        print()
+    else:
+        print(f"  Error: {result.get('message', 'Unknown error')}")
+
+
 def cmd_migrate(source_dir: str):
     """Migrate from an existing task-manager installation."""
     source = Path(source_dir).expanduser()
@@ -1341,6 +1482,9 @@ def main():
 
     # Init command
     subparsers.add_parser("init", help="Initialize Quarterback")
+
+    # Setup wizard command
+    subparsers.add_parser("setup", help="Interactive setup wizard")
 
     # Migrate command
     migrate_parser = subparsers.add_parser("migrate", help="Migrate from task-manager")
@@ -1532,6 +1676,10 @@ def main():
 
     if args.command == "migrate":
         cmd_migrate(args.source_dir)
+        return
+
+    if args.command == "setup":
+        cmd_setup()
         return
 
     # Handle async commands

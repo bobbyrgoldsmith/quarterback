@@ -119,6 +119,7 @@ class QuarterbackServer:
                         },
                         "project_name": {"type": "string"},
                         "status": {"type": "string", "enum": ["pending", "in_progress", "all"]},
+                        "include_closed": {"type": "boolean", "default": False},
                         "limit": {"type": "integer", "default": 10},
                     },
                 },
@@ -136,6 +137,10 @@ class QuarterbackServer:
                         "impact": {"type": "integer", "minimum": 1, "maximum": 5},
                         "due_date": {"type": "string", "format": "date-time"},
                         "notes": {"type": "string"},
+                        "cost": {
+                            "type": "number",
+                            "description": "Financial cost associated with this task",
+                        },
                     },
                     "required": ["description"],
                 },
@@ -149,7 +154,11 @@ class QuarterbackServer:
                         "task_id": {"type": "integer"},
                         "status": {
                             "type": "string",
-                            "enum": ["pending", "in_progress", "completed", "blocked"],
+                            "enum": ["pending", "in_progress", "completed", "blocked", "closed"],
+                        },
+                        "cost": {
+                            "type": "number",
+                            "description": "Financial cost associated with this task",
                         },
                         "priority": {"type": "integer", "minimum": 1, "maximum": 5},
                         "effort": {"type": "number"},
@@ -458,6 +467,105 @@ class QuarterbackServer:
                     "required": ["task_id", "agent_status"],
                 },
             ),
+            Tool(
+                name="setup_quarterback",
+                description=(
+                    "Interactive setup wizard for new Quarterback installations. "
+                    "Use action='get_interview' to get the interview template and current config status, "
+                    "then conduct a conversational interview with the user, and finally call with "
+                    "action='apply_setup' with the structured answers to configure Quarterback."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["get_interview", "apply_setup"],
+                            "description": "get_interview returns the template; apply_setup writes config",
+                        },
+                        "answers": {
+                            "type": "object",
+                            "description": "Structured interview answers (required for apply_setup)",
+                            "properties": {
+                                "organization": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "mission": {"type": "string"},
+                                        "vision": {"type": "string"},
+                                    },
+                                },
+                                "goals": {
+                                    "type": "object",
+                                    "properties": {
+                                        "annual": {"type": "array", "items": {"type": "string"}},
+                                        "quarterly": {"type": "array", "items": {"type": "string"}},
+                                        "anti_goals": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "workflows": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "description": {"type": "string"},
+                                            "goals": {"type": "array", "items": {"type": "string"}},
+                                            "priority": {"type": "integer"},
+                                            "status": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "projects": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "path": {"type": "string"},
+                                            "workflow": {"type": "string"},
+                                            "description": {"type": "string"},
+                                            "status": {"type": "string"},
+                                            "priority": {"type": "integer"},
+                                            "revenue_potential": {"type": "string"},
+                                            "strategic_value": {"type": "string"},
+                                            "technical_complexity": {"type": "string"},
+                                            "next_milestone": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "constraints": {
+                                    "type": "object",
+                                    "properties": {
+                                        "hours_per_week": {"type": "number"},
+                                        "working_hours": {"type": "string"},
+                                        "working_days": {"type": "string"},
+                                        "budget_monthly": {"type": "number"},
+                                        "team_size": {"type": "integer"},
+                                        "preferred_stack": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "avoid_stack": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        "overwrite_existing": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "If true, backs up and replaces existing config files",
+                        },
+                    },
+                    "required": ["action"],
+                },
+            ),
         ]
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> List[TextContent]:
@@ -487,6 +595,7 @@ class QuarterbackServer:
                 "mark_task_agent_ready": self._mark_task_agent_ready,
                 "get_agent_ready_tasks": self._get_agent_ready_tasks,
                 "update_agent_status": self._update_agent_status,
+                "setup_quarterback": self._setup_quarterback,
             }
 
             handler = handler_map.get(name)
@@ -516,7 +625,10 @@ class QuarterbackServer:
             if status != "all":
                 query = query.where(Task.status == status)
             else:
-                query = query.where(Task.status.in_(["pending", "in_progress"]))
+                exclude = (
+                    ["completed", "closed"] if not args.get("include_closed") else ["completed"]
+                )
+                query = query.where(~Task.status.in_(exclude))
 
             if project_name:
                 project_result = await session.execute(
@@ -631,6 +743,7 @@ class QuarterbackServer:
                 priority=args.get("priority", 3),
                 effort=args.get("effort"),
                 impact=args.get("impact", 3),
+                cost=args.get("cost"),
                 due_date=due_date,
                 notes=args.get("notes"),
                 status="pending",
@@ -683,6 +796,8 @@ class QuarterbackServer:
                 task.impact = args["impact"]
             if "notes" in args:
                 task.notes = args["notes"]
+            if "cost" in args:
+                task.cost = args["cost"]
 
             await session.commit()
 
@@ -1258,6 +1373,22 @@ class QuarterbackServer:
                 agent_status=args["agent_status"],
                 agent_output=args.get("agent_output"),
             )
+
+    async def _setup_quarterback(self, args):
+        from quarterback.setup_wizard import get_interview_template, apply_setup
+
+        action = args.get("action")
+        if action == "get_interview":
+            return get_interview_template()
+        elif action == "apply_setup":
+            answers = args.get("answers", {})
+            overwrite = args.get("overwrite_existing", False)
+            result = await apply_setup(answers, engine=self.db_engine, overwrite=overwrite)
+            if result.get("success"):
+                await self._load_org_context()
+            return result
+        else:
+            return {"error": f"Unknown action: {action}. Use 'get_interview' or 'apply_setup'."}
 
     async def list_resources(self) -> List[Resource]:
         return [
