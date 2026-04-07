@@ -71,8 +71,27 @@ class QuarterbackServer:
 
     async def _load_org_context(self):
         try:
+            # Playbook compiled files take precedence when available
+            try:
+                from quarterback.playbook import (
+                    is_playbook_enabled,
+                    read_compiled_constraints,
+                    read_compiled_goals,
+                )
+
+                if is_playbook_enabled():
+                    compiled_goals = read_compiled_goals()
+                    if compiled_goals:
+                        self.org_context["goals_content"] = compiled_goals
+                    compiled_constraints = read_compiled_constraints()
+                    if compiled_constraints:
+                        self.org_context["constraints_content"] = compiled_constraints
+            except ImportError:
+                pass
+
+            # Fall back to org-context/ files for anything not loaded from Playbook
             goals_path = os.path.join(self.context_dir, "goals.md")
-            if os.path.exists(goals_path):
+            if "goals_content" not in self.org_context and os.path.exists(goals_path):
                 with open(goals_path, "r") as f:
                     self.org_context["goals_content"] = f.read()
 
@@ -87,7 +106,7 @@ class QuarterbackServer:
                     self.org_context["projects"] = yaml.safe_load(f)
 
             constraints_path = os.path.join(self.context_dir, "constraints.md")
-            if os.path.exists(constraints_path):
+            if "constraints_content" not in self.org_context and os.path.exists(constraints_path):
                 with open(constraints_path, "r") as f:
                     self.org_context["constraints_content"] = f.read()
 
@@ -566,6 +585,105 @@ class QuarterbackServer:
                     "required": ["action"],
                 },
             ),
+            Tool(
+                name="playbook_read",
+                description=(
+                    "Read from the Playbook knowledge wiki. Use action='status' to check if Playbook is "
+                    "initialized, 'read_index' for the master catalog, 'read_page' for a specific page, "
+                    "'list_pages' to browse by category, or 'search' to find content."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["status", "read_index", "read_page", "list_pages", "search"],
+                        },
+                        "page_path": {
+                            "type": "string",
+                            "description": "Relative path like 'entities/my-entity.md' (for read_page)",
+                        },
+                        "category": {
+                            "type": "string",
+                            "enum": ["entities", "concepts", "decisions", "compiled"],
+                            "description": "Filter by category (for list_pages/search)",
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "Search query (for search action)",
+                        },
+                    },
+                    "required": ["action"],
+                },
+            ),
+            Tool(
+                name="playbook_write",
+                description=(
+                    "Write or update a Playbook wiki page. Provide the relative page_path "
+                    "(e.g., 'entities/my-product.md') and full page content. Optionally include "
+                    "a log_entry that will be appended to the operations log."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "page_path": {
+                            "type": "string",
+                            "description": "Relative path like 'entities/my-entity.md'",
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Full page content in markdown",
+                        },
+                        "log_entry": {
+                            "type": "string",
+                            "description": "Optional entry appended to wiki/log.md",
+                        },
+                    },
+                    "required": ["page_path", "content"],
+                },
+            ),
+            Tool(
+                name="playbook_search",
+                description="Full-text search across all Playbook wiki pages.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search term"},
+                        "category": {
+                            "type": "string",
+                            "enum": ["entities", "concepts", "decisions", "compiled"],
+                            "description": "Optional category filter",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            ),
+            Tool(
+                name="playbook_ingest",
+                description=(
+                    "Ingest raw source material into Playbook wiki pages. Provide source content "
+                    "and a title. Returns the content for you to process into wiki pages using "
+                    "playbook_write."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "source_title": {
+                            "type": "string",
+                            "description": "Title of the source material",
+                        },
+                        "source_content": {
+                            "type": "string",
+                            "description": "The raw content to ingest",
+                        },
+                        "source_path": {
+                            "type": "string",
+                            "description": "Path to file in raw/ directory (alternative to source_content)",
+                        },
+                    },
+                    "required": ["source_title"],
+                },
+            ),
         ]
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> List[TextContent]:
@@ -596,6 +714,10 @@ class QuarterbackServer:
                 "get_agent_ready_tasks": self._get_agent_ready_tasks,
                 "update_agent_status": self._update_agent_status,
                 "setup_quarterback": self._setup_quarterback,
+                "playbook_read": self._playbook_read,
+                "playbook_write": self._playbook_write,
+                "playbook_search": self._playbook_search,
+                "playbook_ingest": self._playbook_ingest,
             }
 
             handler = handler_map.get(name)
@@ -1410,6 +1532,18 @@ class QuarterbackServer:
                 mimeType="text/markdown",
                 description="Resource constraints and strategic boundaries",
             ),
+            Resource(
+                uri="context://playbook/index",
+                name="Playbook Index",
+                mimeType="text/markdown",
+                description="Playbook knowledge wiki master catalog",
+            ),
+            Resource(
+                uri="context://playbook/log",
+                name="Playbook Log",
+                mimeType="text/markdown",
+                description="Playbook operations log",
+            ),
         ]
 
     async def read_resource(self, uri: str) -> str:
@@ -1419,8 +1553,96 @@ class QuarterbackServer:
             return json.dumps(self.org_context.get("workflows", {}), indent=2)
         elif uri == "context://constraints":
             return self.org_context.get("constraints_content", "# No constraints defined")
+        elif uri == "context://playbook/index":
+            from quarterback.playbook import is_playbook_enabled, read_index
+
+            if not is_playbook_enabled():
+                return "# Playbook not initialized\n\nRun `setup_quarterback` to create one."
+            return read_index()
+        elif uri == "context://playbook/log":
+            from quarterback.playbook import is_playbook_enabled, read_log
+
+            if not is_playbook_enabled():
+                return "# Playbook not initialized"
+            return read_log()
         else:
             raise ValueError(f"Unknown resource: {uri}")
+
+    # ------------------------------------------------------------------
+    # Playbook handlers
+    # ------------------------------------------------------------------
+
+    async def _playbook_read(self, args):
+        from quarterback.playbook import (
+            get_playbook_status,
+            is_playbook_enabled,
+            list_pages,
+            read_index,
+            read_page,
+            search_pages,
+        )
+
+        if not is_playbook_enabled():
+            return {"error": "Playbook not initialized. Run setup_quarterback to create one."}
+
+        action = args.get("action", "status")
+        if action == "status":
+            return get_playbook_status()
+        elif action == "read_index":
+            return {"content": read_index()}
+        elif action == "read_page":
+            return read_page(args.get("page_path", ""))
+        elif action == "list_pages":
+            return {"pages": list_pages(args.get("category"))}
+        elif action == "search":
+            return {"results": search_pages(args.get("query", ""), args.get("category"))}
+        return {"error": f"Unknown action: {action}"}
+
+    async def _playbook_write(self, args):
+        from quarterback.playbook import is_playbook_enabled, write_page
+
+        if not is_playbook_enabled():
+            return {"error": "Playbook not initialized."}
+        return write_page(
+            args["page_path"],
+            args["content"],
+            log_entry=args.get("log_entry"),
+        )
+
+    async def _playbook_search(self, args):
+        from quarterback.playbook import is_playbook_enabled, search_pages
+
+        if not is_playbook_enabled():
+            return {"error": "Playbook not initialized."}
+        return {"results": search_pages(args["query"], category=args.get("category"))}
+
+    async def _playbook_ingest(self, args):
+        from quarterback.playbook import is_playbook_enabled
+        from quarterback.config import PLAYBOOK_RAW_DIR
+
+        if not is_playbook_enabled():
+            return {"error": "Playbook not initialized."}
+
+        source_content = args.get("source_content")
+        source_path = args.get("source_path")
+        if source_path:
+            full_path = PLAYBOOK_RAW_DIR / source_path
+            if not full_path.exists():
+                return {"error": f"Source file not found: {source_path}"}
+            source_content = full_path.read_text()
+
+        if not source_content:
+            return {"error": "Provide source_path or source_content"}
+
+        return {
+            "source_title": args.get("source_title", "Untitled"),
+            "source_content": source_content,
+            "instructions": (
+                "Read the source material above. Create or update relevant "
+                "entity/concept/decision pages using playbook_write. "
+                "After all pages are written, the log is auto-updated."
+            ),
+        }
 
 
 async def _main():

@@ -25,6 +25,7 @@ Every other AI task manager breaks down **one project** into subtasks. Quarterba
 | **Agent orchestration** | Autonomy levels + webhooks | No | No |
 | **Time-aware planning** | Working hours, lunch, buffer time | No | No |
 | **Organizational context** | Goals, constraints, workflows | No | No |
+| **Knowledge wiki (Playbook)** | LLM-maintained wiki for cross-session consistency | No | No |
 | **Conflict detection** | Cross-project scheduling conflicts | No | No |
 | **Standalone CLI** | Full CLI without AI runtime | Requires AI | Requires AI |
 | **Cost** | Free (MIT) | Free | Free |
@@ -57,7 +58,7 @@ quarterback plan-day
 
 ### LLM-Powered Setup (via MCP)
 
-When using Quarterback as an MCP server, ask your LLM: *"Set up Quarterback for me"* — it will call the `setup_quarterback` tool, interview you conversationally about your business, goals, workflows, projects, and constraints, then write all config files and database records in one shot. No manual YAML editing required.
+When using Quarterback as an MCP server, ask your LLM: *"Set up Quarterback for me"* — it will call the `setup_quarterback` tool, interview you conversationally about your business, goals, workflows, projects, constraints, and knowledge base (Playbook), then write all config files and database records in one shot. No manual YAML editing required.
 
 ## MCP Server
 
@@ -136,6 +137,54 @@ Mark tasks for autonomous agent execution with configurable autonomy:
 - **Autonomous**: Agent runs to completion
 
 Webhooks notify your automation layer (n8n, Zapier, custom) when tasks are ready.
+
+### Playbook — Knowledge Wiki
+
+Playbook is Quarterback's compiled knowledge layer. It's an LLM-maintained markdown wiki that gives every session — local CLI, MCP, or autonomous agent — the same canonical context about your projects, decisions, and strategies.
+
+**The problem it solves:** Without Playbook, each AI session starts fresh and re-derives your organizational context from sparse signals. Two sessions running the same query can produce different results because they reconstruct understanding independently. Playbook provides accumulated knowledge that all sessions read from.
+
+**How it works:**
+
+```
+~/playbook/                          (or ~/.quarterback/playbook/)
+├── CLAUDE.md                        # Schema — how the LLM reads/writes pages
+├── raw/                             # Drop zone for source material
+└── wiki/
+    ├── index.md                     # Master catalog — read this first
+    ├── entities/                    # Companies, products, clients, tools
+    ├── concepts/                    # Patterns, strategies, recurring themes
+    ├── decisions/                   # Decisions with rationale and alternatives
+    ├── compiled/                    # QB-compatible files for task scoring
+    │   ├── goals.md                 # Read by QB's prioritization engine
+    │   └── constraints.md           # Read by QB's conflict detection
+    └── log.md                       # Append-only operations record
+```
+
+**Setup:** Playbook is created automatically during `quarterback setup` (or the MCP setup wizard). The interview asks about your key entities, concepts, and decisions, then seeds initial wiki pages.
+
+**Without Playbook:** Quarterback works exactly as before — reading goals and constraints from `~/.quarterback/org-context/` files. Playbook is opt-in.
+
+**With Playbook:** Quarterback reads `compiled/goals.md` and `compiled/constraints.md` from Playbook first, falling back to `org-context/` files if Playbook isn't initialized. Your LLM reads `wiki/index.md` for full organizational context.
+
+```bash
+# Check Playbook status
+quarterback playbook status
+
+# Browse the index
+quarterback playbook index
+
+# List pages by category
+quarterback playbook list --category entities
+
+# Read a specific page
+quarterback playbook read entities/my-product.md
+
+# Search across all pages
+quarterback playbook search "budget"
+```
+
+**Obsidian integration (optional):** During setup, you can opt to configure Playbook as an Obsidian vault. Open the Playbook folder in Obsidian for graph visualization and visual editing. Install an [Obsidian MCP server](https://github.com/iansinnott/obsidian-claude-code-mcp) for programmatic access. No Obsidian dependency required — Playbook works as plain markdown files.
 
 ### CI/CD Pipeline Integration
 
@@ -238,6 +287,8 @@ After `quarterback init`, run `quarterback setup` for an interactive wizard, or 
 
 Example templates are included — copy from `.example` files and customize.
 
+If you enable Playbook during setup, `goals.md` and `constraints.md` are auto-maintained from the wiki's `compiled/` directory. You can still manually edit the org-context files — Playbook is additive, not required.
+
 ### Alert Configuration
 
 Configure notifications in `~/.quarterback/config/alerts.yaml`:
@@ -270,8 +321,13 @@ Configure notifications in `~/.quarterback/config/alerts.yaml`:
 | `quarterback advisory-approve --id N` | Approve/reject recommendations |
 | `quarterback alert-check` | Check for alerts |
 | `quarterback alert-summary` | Send daily summary |
+| `quarterback playbook status` | Playbook initialization status |
+| `quarterback playbook index` | Show Playbook master catalog |
+| `quarterback playbook list` | List wiki pages (with `--category` filter) |
+| `quarterback playbook read <path>` | Read a wiki page |
+| `quarterback playbook search <query>` | Full-text search across pages |
 
-## MCP Tools (23 total)
+## MCP Tools (27 total)
 
 When used as an MCP server, Quarterback exposes these tools to Claude:
 
@@ -280,6 +336,8 @@ When used as an MCP server, Quarterback exposes these tools to Claude:
 **Project Management**: `add_project`, `list_projects`, `update_project`, `get_organizational_summary`
 
 **Advisory System**: `add_advisory_document`, `list_advisory_documents`, `get_advisory_document`, `analyze_advisory_document`, `discuss_advisory_recommendations`, `adopt_advisory_recommendations`
+
+**Playbook**: `playbook_read`, `playbook_write`, `playbook_search`, `playbook_ingest`
 
 **Webhooks**: `register_webhook`, `list_webhooks`, `update_webhook`, `delete_webhook`
 
@@ -292,6 +350,7 @@ When used as an MCP server, Quarterback exposes these tools to Claude:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `QUARTERBACK_HOME` | `~/.quarterback` | Data directory |
+| `PLAYBOOK_PATH` | `~/.quarterback/playbook` | Playbook wiki location (or set in `config/playbook.yaml`) |
 | `QUARTERBACK_API_URL` | None | Reserved for Pro features |
 
 ## Contributing

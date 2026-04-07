@@ -34,7 +34,9 @@ org-context/projects.yaml
 org-context/constraints.md
 config/alerts.yaml
 config/alignment.yaml
+config/playbook.yaml
 data/
+playbook/
 
 # Ruff
 .ruff_cache/

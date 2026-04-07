@@ -131,6 +131,21 @@ async def sample_tasks(db_session, sample_projects):
 
 
 @pytest.fixture
+def playbook_dir(tmp_path):
+    """Create a temporary Playbook structure for testing."""
+    pb = tmp_path / "playbook"
+    pb.mkdir()
+    (pb / "raw").mkdir()
+    (pb / "wiki").mkdir()
+    for cat in ("entities", "concepts", "decisions", "compiled"):
+        (pb / "wiki" / cat).mkdir()
+    (pb / "CLAUDE.md").write_text("# Playbook Schema\nTest schema.\n")
+    (pb / "wiki" / "index.md").write_text("# Index\nTest index.\n")
+    (pb / "wiki" / "log.md").write_text("# Log\n")
+    return pb
+
+
+@pytest.fixture
 def sample_org_context():
     """Sample organizational context for testing."""
     return {

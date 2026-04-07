@@ -46,8 +46,27 @@ class QuarterbackCLI:
 
     async def _load_org_context(self):
         try:
+            # Playbook compiled files take precedence when available
+            try:
+                from quarterback.playbook import (
+                    is_playbook_enabled,
+                    read_compiled_constraints,
+                    read_compiled_goals,
+                )
+
+                if is_playbook_enabled():
+                    compiled_goals = read_compiled_goals()
+                    if compiled_goals:
+                        self.org_context["goals_content"] = compiled_goals
+                    compiled_constraints = read_compiled_constraints()
+                    if compiled_constraints:
+                        self.org_context["constraints_content"] = compiled_constraints
+            except ImportError:
+                pass
+
+            # Fall back to org-context/ files
             goals_path = self.context_dir / "goals.md"
-            if goals_path.exists():
+            if "goals_content" not in self.org_context and goals_path.exists():
                 self.org_context["goals_content"] = goals_path.read_text()
 
             workflows_path = self.context_dir / "workflows.yaml"
@@ -59,11 +78,68 @@ class QuarterbackCLI:
                 self.org_context["projects"] = yaml.safe_load(projects_path.read_text())
 
             constraints_path = self.context_dir / "constraints.md"
-            if constraints_path.exists():
+            if "constraints_content" not in self.org_context and constraints_path.exists():
                 self.org_context["constraints_content"] = constraints_path.read_text()
 
         except Exception as e:
             print(f"Warning: Error loading org context: {e}", file=sys.stderr)
+
+    async def cmd_playbook(self, action: str, **kwargs):
+        """Playbook wiki operations."""
+        from quarterback.playbook import (
+            get_playbook_status,
+            is_playbook_enabled,
+            list_pages,
+            read_index,
+            read_page,
+            search_pages,
+        )
+
+        if not is_playbook_enabled():
+            print("Playbook not initialized. Run 'quarterback setup' to create one.")
+            return
+
+        if action == "status":
+            status = get_playbook_status()
+            print(f"Playbook: {status['path']}")
+            print(f"Pages: {status['total_pages']} total")
+            for cat, count in status.get("pages", {}).items():
+                print(f"  {cat}: {count}")
+            print(f"Compiled goals: {'yes' if status['has_compiled_goals'] else 'no'}")
+            print(f"Compiled constraints: {'yes' if status['has_compiled_constraints'] else 'no'}")
+            print(f"Obsidian vault: {'yes' if status['has_obsidian'] else 'no'}")
+        elif action == "index":
+            print(read_index())
+        elif action == "list":
+            pages = list_pages(kwargs.get("category"))
+            for p in pages:
+                print(f"  [{p['category']}] {p['path']}")
+        elif action == "read":
+            page_path = kwargs.get("page")
+            if not page_path:
+                print("Usage: quarterback playbook read <page_path>")
+                return
+            result = read_page(page_path)
+            if result.get("exists"):
+                print(result["content"])
+            else:
+                print(f"Page not found: {page_path}")
+        elif action == "search":
+            query = kwargs.get("query")
+            if not query:
+                print("Usage: quarterback playbook search <query>")
+                return
+            results = search_pages(query)
+            if not results:
+                print(f"No results for: {query}")
+                return
+            for r in results:
+                print(f"\n  [{r['category']}] {r['path']}")
+                for m in r["matches"]:
+                    print(f"    {m}")
+        else:
+            print(f"Unknown action: {action}")
+            print("Available: status, index, list, read, search")
 
     async def cmd_priorities(
         self, timeframe: str = "today", project: Optional[str] = None, limit: int = 10
@@ -1667,6 +1743,21 @@ def main():
         "--priority", type=int, default=3, choices=[1, 2, 3, 4, 5], help="Priority (1-5)"
     )
 
+    # Playbook commands
+    playbook_parser = subparsers.add_parser("playbook", help="Playbook knowledge wiki operations")
+    playbook_parser.add_argument(
+        "playbook_action",
+        choices=["status", "index", "list", "read", "search"],
+        help="Playbook action",
+    )
+    playbook_parser.add_argument("--page", help="Page path (for read)")
+    playbook_parser.add_argument("--query", help="Search query (for search)")
+    playbook_parser.add_argument(
+        "--category",
+        choices=["entities", "concepts", "decisions", "compiled"],
+        help="Filter by category (for list)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -1780,6 +1871,13 @@ def main():
                 source=args.source,
                 project=args.project,
                 priority=args.priority,
+            )
+        elif args.command == "playbook":
+            await cli.cmd_playbook(
+                args.playbook_action,
+                page=args.page,
+                query=args.query,
+                category=args.category,
             )
 
     asyncio.run(run())

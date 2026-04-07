@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0] - 2026-04-07
+
+### Added
+- **Playbook knowledge wiki**: LLM-maintained markdown wiki for cross-session consistency. Entities, concepts, decisions, and compiled files that Quarterback reads for task scoring. Follows the Karpathy LLM wiki pattern — accumulated knowledge rather than re-derived context.
+- **4 new MCP tools**: `playbook_read`, `playbook_write`, `playbook_search`, `playbook_ingest` for programmatic wiki operations
+- **2 new MCP resources**: `context://playbook/index`, `context://playbook/log` for wiki discovery
+- **CLI `quarterback playbook` subcommand**: `status`, `index`, `list`, `read`, `search` actions
+- **Setup wizard Playbook section**: Interview asks about entities, concepts, decisions, and Obsidian preference; seeds initial wiki pages automatically
+- **Obsidian vault support**: Optional `.obsidian/` stub creation for visual browsing and graph view
+- **Playbook-first context loading**: `_load_org_context()` reads compiled goals/constraints from Playbook when available, falls back to `org-context/` files for backward compatibility
+- **`PLAYBOOK_PATH` environment variable**: Configure custom Playbook location (default: `~/.quarterback/playbook/`)
+- **32 new tests** for the Playbook module
+
 ## [1.0.0] - 2026-03-23
 
 ### Added

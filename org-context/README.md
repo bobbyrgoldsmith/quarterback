@@ -36,6 +36,13 @@ quarterback conflicts           # Detects conflicts against constraints
 quarterback advisory-add --url  # Analyzes articles against your goals
 ```
 
+## Playbook Integration
+
+If you enable Playbook (Quarterback's compiled knowledge wiki), your `goals.md`
+and `constraints.md` can be auto-maintained from Playbook's `compiled/` directory.
+When Playbook is active, Quarterback reads compiled files first and falls back to
+files in this directory. See `quarterback playbook status` for details.
+
 ## Tips
 
 1. **Keep it updated**: Regular updates ensure accurate prioritization

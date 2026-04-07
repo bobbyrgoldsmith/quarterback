@@ -131,6 +131,73 @@ INTERVIEW_TEMPLATE = {
             "required": False,
         },
     },
+    "playbook": {
+        "enabled": {
+            "type": "boolean",
+            "prompt": (
+                "Would you like to set up a Playbook? It's a knowledge wiki that gives "
+                "Claude consistent context across sessions. (Recommended for ongoing projects.)"
+            ),
+            "required": False,
+            "default": True,
+        },
+        "path": {
+            "type": "string",
+            "prompt": (
+                "Where should the Playbook live? Leave empty for the default "
+                "(~/.quarterback/playbook/) or specify a custom path like ~/playbook/"
+            ),
+            "required": False,
+            "default": "",
+        },
+        "entities": {
+            "type": "array",
+            "prompt": (
+                "What are the key entities in your work? (Companies, products, clients, "
+                "tools — these become wiki pages Claude can reference.)"
+            ),
+            "item_fields": {
+                "name": {"type": "string", "required": True},
+                "description": {"type": "string", "required": True},
+                "current_state": {"type": "string", "required": False},
+            },
+            "required": False,
+        },
+        "concepts": {
+            "type": "array",
+            "prompt": (
+                "Any recurring concepts, strategies, or patterns you want documented? "
+                "(e.g., 'budget tracking', 'release process')"
+            ),
+            "item_fields": {
+                "name": {"type": "string", "required": True},
+                "summary": {"type": "string", "required": True},
+            },
+            "required": False,
+        },
+        "decisions": {
+            "type": "array",
+            "prompt": (
+                "Any important decisions you've made that future sessions should know about? "
+                "(e.g., 'chose Postgres over MongoDB', 'pivoted from B2C to B2B')"
+            ),
+            "item_fields": {
+                "name": {"type": "string", "required": True},
+                "context": {"type": "string", "required": True},
+                "decision": {"type": "string", "required": True},
+            },
+            "required": False,
+        },
+        "obsidian": {
+            "type": "boolean",
+            "prompt": (
+                "Do you use Obsidian? If yes, we'll configure the Playbook as an Obsidian "
+                "vault so you can browse and edit pages visually."
+            ),
+            "required": False,
+            "default": False,
+        },
+    },
 }
 
 
@@ -141,12 +208,15 @@ def get_setup_status() -> dict[str, Any]:
     projects_path = ORG_CONTEXT_DIR / "projects.yaml"
     constraints_path = ORG_CONTEXT_DIR / "constraints.md"
 
+    from quarterback.playbook import is_playbook_enabled
+
     return {
         "quarterback_initialized": QUARTERBACK_HOME.exists(),
         "goals_configured": goals_path.exists() and goals_path.stat().st_size > 0,
         "workflows_configured": workflows_path.exists() and workflows_path.stat().st_size > 0,
         "projects_configured": projects_path.exists() and projects_path.stat().st_size > 0,
         "constraints_configured": constraints_path.exists() and constraints_path.stat().st_size > 0,
+        "playbook_configured": is_playbook_enabled(),
     }
 
 
@@ -515,13 +585,56 @@ async def apply_setup(answers: dict, engine=None, overwrite: bool = False) -> di
         engine = await init_db()
     await create_db_records(answers, engine)
 
+    # Initialize Playbook if enabled
+    playbook_answers = answers.get("playbook", {})
+    playbook_message = ""
+    if playbook_answers.get("enabled", True):
+        from quarterback.playbook import initialize_playbook
+
+        custom_path = playbook_answers.get("path", "")
+        playbook_path = Path(custom_path).expanduser() if custom_path else None
+
+        # Persist chosen path to config
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        playbook_config = {"playbook_path": str(playbook_path) if playbook_path else None}
+        (CONFIG_DIR / "playbook.yaml").write_text(yaml.dump(playbook_config))
+
+        pb_result = initialize_playbook(
+            playbook_path=playbook_path,
+            seed_data={
+                "organization": answers.get("organization", {}),
+                "goals": answers.get("goals", {}),
+                "constraints": answers.get("constraints", {}),
+                "workflows": answers.get("workflows", []),
+                "projects": answers.get("projects", []),
+                "entities": playbook_answers.get("entities", []),
+                "concepts": playbook_answers.get("concepts", []),
+                "decisions": playbook_answers.get("decisions", []),
+                "obsidian": playbook_answers.get("obsidian", False),
+            },
+        )
+
+        if pb_result.get("success"):
+            files_written.extend([f"playbook/{p}" for p in pb_result["pages_created"]])
+            playbook_message = f" Playbook initialized at {pb_result['path']}."
+
+    next_steps = [
+        "Add tasks to your projects with add_task",
+        "Check priorities with get_priorities",
+        "Run 'quarterback plan-day' for daily planning",
+    ]
+    if playbook_answers.get("obsidian"):
+        next_steps.append(
+            "Open your Playbook folder in Obsidian to browse pages visually. "
+            "Install an Obsidian MCP server for AI-assisted editing."
+        )
+
     return {
         "success": True,
         "files_written": files_written,
-        "message": "Quarterback is configured! Your org context, goals, workflows, projects, and constraints are all set up.",
-        "next_steps": [
-            "Add tasks to your projects with add_task",
-            "Check priorities with get_priorities",
-            "Run 'quarterback plan-day' for daily planning",
-        ],
+        "message": (
+            "Quarterback is configured! Your org context, goals, workflows, "
+            "projects, and constraints are all set up." + playbook_message
+        ),
+        "next_steps": next_steps,
     }
