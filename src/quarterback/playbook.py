@@ -288,15 +288,19 @@ def initialize_playbook(
                 pages_created.append(f"entities/{slug}.md")
                 entity_entries.append(f"- [[{name}]] — {desc[:80]}")
 
-        # Generate compiled files from org answers
-        if seed_data.get("goals") or seed_data.get("organization"):
+        # Generate compiled files from org answers (skip if already exist)
+        compiled_goals_path = pb / "wiki" / "compiled" / "goals.md"
+        if not compiled_goals_path.exists() and (
+            seed_data.get("goals") or seed_data.get("organization")
+        ):
             compiled_goals = seed_compiled_goals(seed_data)
-            (pb / "wiki" / "compiled" / "goals.md").write_text(compiled_goals)
+            compiled_goals_path.write_text(compiled_goals)
             pages_created.append("compiled/goals.md")
 
-        if seed_data.get("constraints"):
+        compiled_constraints_path = pb / "wiki" / "compiled" / "constraints.md"
+        if not compiled_constraints_path.exists() and seed_data.get("constraints"):
             compiled_constraints = seed_compiled_constraints(seed_data)
-            (pb / "wiki" / "compiled" / "constraints.md").write_text(compiled_constraints)
+            compiled_constraints_path.write_text(compiled_constraints)
             pages_created.append("compiled/constraints.md")
 
         # Obsidian vault stub
