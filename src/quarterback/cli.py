@@ -1750,12 +1750,15 @@ def main():
         choices=["status", "index", "list", "read", "search"],
         help="Playbook action",
     )
-    playbook_parser.add_argument("--page", help="Page path (for read)")
-    playbook_parser.add_argument("--query", help="Search query (for search)")
+    playbook_parser.add_argument(
+        "playbook_arg",
+        nargs="?",
+        help="Page path (for read) or search query (for search)",
+    )
     playbook_parser.add_argument(
         "--category",
         choices=["entities", "concepts", "decisions", "compiled"],
-        help="Filter by category (for list)",
+        help="Filter by category (for list/search)",
     )
 
     args = parser.parse_args()
@@ -1875,8 +1878,8 @@ def main():
         elif args.command == "playbook":
             await cli.cmd_playbook(
                 args.playbook_action,
-                page=args.page,
-                query=args.query,
+                page=args.playbook_arg,
+                query=args.playbook_arg,
                 category=args.category,
             )
 

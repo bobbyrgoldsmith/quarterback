@@ -206,10 +206,12 @@ def initialize_playbook(
     ]:
         d.mkdir(parents=True, exist_ok=True)
 
-    # Write CLAUDE.md schema
-    schema = generate_schema_md(str(pb))
-    (pb / "CLAUDE.md").write_text(schema)
-    pages_created.append("CLAUDE.md")
+    # Write CLAUDE.md schema (only if not exists — never overwrite user's schema)
+    schema_path = pb / "CLAUDE.md"
+    if not schema_path.exists():
+        schema = generate_schema_md(str(pb))
+        schema_path.write_text(schema)
+        pages_created.append("CLAUDE.md")
 
     # Seed from interview data if provided
     entity_entries = []
@@ -223,42 +225,48 @@ def initialize_playbook(
             if not name:
                 continue
             slug = _slugify(name)
-            content = seed_entity_page(
-                name=name,
-                description=ent.get("description", ""),
-                current_state=ent.get("current_state", ""),
-            )
-            (pb / "wiki" / "entities" / f"{slug}.md").write_text(content)
-            pages_created.append(f"entities/{slug}.md")
+            path = pb / "wiki" / "entities" / f"{slug}.md"
+            if not path.exists():
+                content = seed_entity_page(
+                    name=name,
+                    description=ent.get("description", ""),
+                    current_state=ent.get("current_state", ""),
+                )
+                path.write_text(content)
+                pages_created.append(f"entities/{slug}.md")
             entity_entries.append(f"- [[{name}]] — {ent.get('description', '')[:80]}")
 
-        # Create concept pages
+        # Create concept pages (skip existing)
         for con in seed_data.get("concepts", []):
             name = con.get("name", "")
             if not name:
                 continue
             slug = _slugify(name)
-            content = seed_concept_page(
-                name=name,
-                summary=con.get("summary", ""),
-            )
-            (pb / "wiki" / "concepts" / f"{slug}.md").write_text(content)
-            pages_created.append(f"concepts/{slug}.md")
+            path = pb / "wiki" / "concepts" / f"{slug}.md"
+            if not path.exists():
+                content = seed_concept_page(
+                    name=name,
+                    summary=con.get("summary", ""),
+                )
+                path.write_text(content)
+                pages_created.append(f"concepts/{slug}.md")
             concept_entries.append(f"- [[{name}]] — {con.get('summary', '')[:80]}")
 
-        # Create decision pages
+        # Create decision pages (skip existing)
         for dec in seed_data.get("decisions", []):
             name = dec.get("name", "")
             if not name:
                 continue
             slug = _slugify(name)
-            content = seed_decision_page(
-                name=name,
-                context=dec.get("context", ""),
-                decision=dec.get("decision", ""),
-            )
-            (pb / "wiki" / "decisions" / f"{slug}.md").write_text(content)
-            pages_created.append(f"decisions/{slug}.md")
+            path = pb / "wiki" / "decisions" / f"{slug}.md"
+            if not path.exists():
+                content = seed_decision_page(
+                    name=name,
+                    context=dec.get("context", ""),
+                    decision=dec.get("decision", ""),
+                )
+                path.write_text(content)
+                pages_created.append(f"decisions/{slug}.md")
             decision_entries.append(f"- [[Decision - {name}]]")
 
         # Auto-generate entity pages from projects if provided
@@ -299,17 +307,21 @@ def initialize_playbook(
                 '{\n  "showLineNumber": true,\n  "strictLineBreaks": true\n}\n'
             )
 
-    # Write index.md
-    org_name = ""
-    if seed_data and seed_data.get("organization"):
-        org_name = seed_data["organization"].get("name", "")
-    index = seed_index_md(entity_entries, concept_entries, decision_entries, org_name)
-    (pb / "wiki" / "index.md").write_text(index)
-    pages_created.append("index.md")
+    # Write index.md (only if not exists — never overwrite user's index)
+    index_path = pb / "wiki" / "index.md"
+    if not index_path.exists():
+        org_name = ""
+        if seed_data and seed_data.get("organization"):
+            org_name = seed_data["organization"].get("name", "")
+        index = seed_index_md(entity_entries, concept_entries, decision_entries, org_name)
+        index_path.write_text(index)
+        pages_created.append("index.md")
 
-    # Write initial log.md
-    today = datetime.now().strftime("%Y-%m-%d")
-    log_content = f"""Last updated: {today}
+    # Write initial log.md (only if not exists — never overwrite user's log)
+    log_path = pb / "wiki" / "log.md"
+    if not log_path.exists():
+        today = datetime.now().strftime("%Y-%m-%d")
+        log_content = f"""Last updated: {today}
 
 # Playbook Operations Log
 
@@ -324,8 +336,11 @@ Append-only record of all wiki changes.
 
 ---
 """
-    (pb / "wiki" / "log.md").write_text(log_content)
-    pages_created.append("log.md")
+        log_path.write_text(log_content)
+        pages_created.append("log.md")
+    else:
+        # Append to existing log
+        append_log(f"Playbook re-initialized. {len(pages_created)} pages created/updated.")
 
     return {
         "success": True,
